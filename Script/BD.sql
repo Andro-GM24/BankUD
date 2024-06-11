@@ -50,7 +50,7 @@ CREATE TABLE IF NOT EXISTS financial_product(
 
 CREATE TABLE IF NOT EXISTS banking_card(
 	id INT AUTO_INCREMENT PRIMARY KEY,
-    card_number INT UNIQUE,
+    card_number VARCHAR(20),
     financial_product_fk INT,
     password VARCHAR(50) NOT NULL,
     creation_date datetime NOT NULL,
