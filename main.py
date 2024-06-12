@@ -453,3 +453,160 @@ def delete_transaction_code(id: int):
     mydb.commit()
     return {"mensaje": "transaction_code eliminado"}
 
+@app.get("/transaction-codes/query{username}")
+def get_nombre_transaction_codes(username: str) -> List[dict]:
+    cursor = mydb.cursor(dictionary=True)
+    query = """
+        SELECT tCode.*
+        FROM transaction_code tCode
+        INNER JOIN transaction tranc ON tCode.transaction_fk = tranc.id
+        INNER JOIN transaction_status tStatus ON tranc.status_fk = tStatus.id
+        INNER JOIN financial_product fProduct ON fProduct.id = tranc.destination_fk
+        INNER JOIN users usr ON usr.id_number = fProduct.user_fk
+        WHERE tStatus.name = 'COMPLETED'
+        AND usr.name = %s
+    """
+    cursor.execute(query, (username,))
+    transaction_codes = cursor.fetchall()
+    cursor.close()
+    return transaction_codes    
+
+@app.get("/blocked-credit-cards")
+def get_blocked_credit_cards() -> List[dict]:
+    cursor = mydb.cursor(dictionary=True)
+    query = """
+        SELECT usr.email, card.card_number
+        FROM users usr 
+        INNER JOIN financial_product fProduct ON usr.id_number = fProduct.user_fk
+        INNER JOIN financial_product_type fpType ON fpType.id = fProduct.type_fk
+        INNER JOIN banking_card card ON card.financial_product_fk = fProduct.id
+        INNER JOIN financial_product_status fpStatus ON fpStatus.id_status = fProduct.status_fk
+        WHERE fpType.name = 'Credit card'
+        AND fpStatus.name = 'Blocked'
+    """
+    cursor.execute(query)
+
+    blocked_credit_cards = cursor.fetchall()
+    cursor.close()
+    return blocked_credit_cards
+
+
+
+@app.get("/query")#read usuario
+def get_productos_luisa():
+    cursor = mydb.cursor()
+    cursor.execute("SELECT * FROM productos_Luisa")
+    result = cursor.fetchall()
+
+ # convierte a utf8
+    column_names = [i[0] for i in cursor.description]
+    productos_Luisas = []
+    for row in result:
+        productos_Luisa = {}
+        for idx, value in enumerate(row):
+            if isinstance(value, bytes):
+                productos_Luisa[column_names[idx]] = safe_decode(value)
+            else:
+                productos_Luisa[column_names[idx]] = value
+        productos_Luisas.append(productos_Luisa)
+    
+    return {"productos_luisa": productos_Luisas}
+
+@app.get("/financial-products/debit-no-card")
+def get_debit_accounts_no_card() -> List[dict]:
+    cursor = mydb.cursor(dictionary=True)
+    query = """
+    SELECT CONCAT(usr.name, ' ', usr.last_name) AS 'Full name', fProduct.*
+    FROM financial_product fProduct
+    INNER JOIN financial_product_type fpType ON fProduct.type_fk = fpType.id
+    INNER JOIN users usr ON usr.id_number = fProduct.user_fk
+    WHERE fpType.name = 'debit account'
+    AND fProduct.has_card = 0;
+    """
+    cursor.execute(query)
+    results = cursor.fetchall()
+    cursor.close()
+    return results  
+
+@app.get("/financial-products-overdue", response_model=List[Dict[str, str]])
+def get_financial_products_overdue():
+    cursor = mydb.cursor(dictionary=True)
+    query = """
+    SELECT usr.email, usr.phone_number, fpType.name
+    FROM users usr 
+    INNER JOIN financial_product fProduct ON usr.id_number = fProduct.user_fk
+    INNER JOIN financial_product_type fpType ON fpType.id = fProduct.type_fk
+    INNER JOIN financial_product_status fpStatus ON fpStatus.id_status = fProduct.status_fk
+    WHERE fpType.name IN ('Credit card','Debit account')
+    AND fProduct.amount < -100000;
+    """
+    cursor.execute(query)
+    results = cursor.fetchall()
+    cursor.close()
+    return results
+
+@app.get("/financial-product-status", response_model=List[Dict[str, str]])
+def get_financial_product_status_empty_description():
+    cursor = mydb.cursor(dictionary=True)
+    query = """
+    SELECT fpStatus.*
+    FROM financial_product_status fpStatus
+    WHERE fpStatus.Description = '';
+    """
+    cursor.execute(query)
+    results = cursor.fetchall()
+    cursor.close()
+    return results
+
+@app.get("/full-name-count")
+def get_full_name_count():
+    cursor = mydb.cursor(dictionary=True)
+    query = """
+        SELECT CONCAT(usr.name, ' ', usr.last_name) AS 'Full name', COUNT(fProduct.id) AS 'Count'
+        FROM users usr
+        INNER JOIN financial_product fProduct ON fProduct.user_fk = usr.id_number
+        GROUP BY CONCAT(usr.name, ' ', usr.last_name)
+    """
+    cursor.execute(query)
+    result = cursor.fetchall()
+    cursor.close()
+    return result
+
+@app.get("/financial-product-types")
+def get_financial_product_types():
+    cursor = mydb.cursor(dictionary=True)
+    query = """
+        SELECT *
+        FROM financial_product_type
+    """
+    cursor.execute(query)
+    result = cursor.fetchall()
+    cursor.close()
+    return result
+
+@app.get("/failed-transactions")
+def get_failed_transactions():
+    cursor = mydb.cursor(dictionary=True)
+    query = """
+        SELECT trans.id, trans.amount
+        FROM transaction trans
+        INNER JOIN transaction_status tStatus ON tStatus.id = trans.transaction_type_fk
+        WHERE tStatus.name = 'Failed'
+    """
+    cursor.execute(query)
+    result = cursor.fetchall()
+    cursor.close()
+    return result
+
+@app.get("/users-with-email")
+def get_users_with_email():
+    cursor = mydb.cursor(dictionary=True)
+    query = """
+        SELECT *
+        FROM users
+        WHERE email LIKE '%@%'
+    """
+    cursor.execute(query)
+    result = cursor.fetchall()
+    cursor.close()
+    return result
